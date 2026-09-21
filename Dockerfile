@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run sync && npm run build && npm run build:server
+RUN npm run build && npm run build:server
 
 FROM node:24-alpine
 WORKDIR /app

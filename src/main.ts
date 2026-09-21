@@ -75,7 +75,7 @@ async function fetchRelease(): Promise<void> {
       writeCache(localStorage, `pvc:rel:${relKey}`, info);
     }
     suite = info.codename;
-    fillSuiteSelect(info.distros);
+    fillSelect(suiteSelect, info.distros, suite);
     repoLine.textContent = `${product.name} — ${suite} (${info.suite}) — ${info.date} · arch: ${info.architectures.join(", ")}`;
     fillSelect(componentSelect, info.components, component);
     fillSelect(archSelect, info.architectures, arch);
@@ -230,17 +230,6 @@ async function showChangelog(pkg: PackageEntry): Promise<void> {
 }
 
 // --- Wiring ---
-
-function fillSuiteSelect(distros: string[]): void {
-  suiteSelect.textContent = "";
-  for (const d of distros) {
-    const opt = document.createElement("option");
-    opt.value = d;
-    opt.textContent = d;
-    suiteSelect.appendChild(opt);
-  }
-  suiteSelect.value = suite && distros.includes(suite) ? suite : (distros[0] ?? "");
-}
 
 productSelect.textContent = "";
 for (const p of PRODUCTS) {

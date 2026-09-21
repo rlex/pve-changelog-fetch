@@ -1,5 +1,6 @@
 import type { PackageEntry } from "./shared/types";
 import { compareVersions } from "./shared/compare";
+import { escapeRegex } from "./shared/regex";
 
 export type SortMode = "recent" | "name";
 
@@ -45,7 +46,7 @@ function globToRe(pattern: string): RegExp {
  for (const ch of pattern) {
   if (ch === "*") src += ".*";
   else if (ch === "?") src += ".";
-  else src += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  else src += escapeRegex(ch);
  }
  return new RegExp(`^${src}$`);
 }

@@ -9,13 +9,7 @@ import {
 import type { PackageEntry, PackageList, ReleaseFields } from "../shared/types";
 import { PRODUCTS, CACHE_SECONDS, type Product } from "../shared/config";
 import { compareVersions } from "../shared/compare";
-
-const corsHeaders = {
- "Access-Control-Allow-Origin": "*",
- "Access-Control-Allow-Methods": "GET, OPTIONS",
- "Access-Control-Allow-Headers": "Content-Type",
- "Access-Control-Max-Age": "86400",
-};
+import { escapeRegex } from "../shared/regex";
 
 /** True when `value` is a non-empty string fully matching `re`.
  * Used to whitelist user-supplied path segments before interpolating into upstream URLs —
@@ -94,7 +88,6 @@ function json(data: unknown, cacheControl: string, status = 200): Response {
   headers: {
    "Content-Type": "application/json; charset=utf-8",
    "Cache-Control": cacheControl,
-   ...corsHeaders,
   },
  });
 }
@@ -167,7 +160,7 @@ async function newestChangelogVersion(
  pkg: string,
 ): Promise<string> {
  const listing = await fetchText(cache, changelogDirUrl(template, component, pkg), CACHE_SECONDS.listing);
- const re = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_([^"<]+)\\.changelog`, "g");
+ const re = new RegExp(`${escapeRegex(pkg)}_([^"<]+)\\.changelog`, "g");
  let best: string | null = null;
  for (const m of listing.matchAll(re)) {
   const version = m[1];
@@ -177,9 +170,9 @@ async function newestChangelogVersion(
  return best;
 }
 
-async function handleRelease(cache: CacheStore, url: URL, product: Product): Promise<Response> {
+async function handleRelease(cache: CacheStore, url: URL, product: Product, distros: string[]): Promise<Response> {
  const suite = url.searchParams.get("suite") as string;
- const [distros, info] = await Promise.all([discoverDistros(cache, product.repo), releaseInfo(cache, product, suite)]);
+ const info = await releaseInfo(cache, product, suite);
  return json({ product: product.id, distros, ...info }, `public, max-age=${CACHE_SECONDS.release}`);
 }
 
@@ -265,9 +258,6 @@ export async function apiFetch(cache: CacheStore, request: Request): Promise<Res
  const url = new URL(request.url);
  if (!url.pathname.startsWith("/api/")) return null;
 
- if (request.method === "OPTIONS") {
-  return new Response(null, { status: 204, headers: corsHeaders });
- }
  if (request.method !== "GET") {
   return json({ error: "method not allowed" }, "no-store", 405);
  }
@@ -293,7 +283,7 @@ export async function apiFetch(cache: CacheStore, request: Request): Promise<Res
   }
   url.searchParams.set("suite", suite);
 
-  if (url.pathname === "/api/release") return await handleRelease(cache, url, product);
+  if (url.pathname === "/api/release") return await handleRelease(cache, url, product, distros);
   if (url.pathname === "/api/packages") return await handlePackages(cache, url, product);
   if (url.pathname === "/api/changelog") return await handleChangelog(cache, url, product);
   return json({ error: "not found" }, "no-store", 404);

@@ -14,9 +14,4 @@ describe("apiFetch", () => {
   it("returns null for non-API paths so static assets can be served", async () => {
     expect(await apiFetch(cache, new Request("http://localhost/assets/app.js"))).toBeNull();
   });
-
-  it("answers CORS preflight with 204", async () => {
-    const res = await apiFetch(cache, new Request("http://localhost/api/health", { method: "OPTIONS" }));
-    expect(res!.status).toBe(204);
-  });
 });

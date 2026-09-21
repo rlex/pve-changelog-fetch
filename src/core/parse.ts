@@ -1,4 +1,5 @@
 import type { ReleaseFields, PackageEntry, ChangelogEntry } from "../shared/types";
+import { escapeRegex } from "../shared/regex";
 
 const MONTHS: Record<string, number> = {
  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -95,7 +96,7 @@ export function parsePackages(text: string): PackageEntry[] {
  */
 export function parseChangelog(text: string, pkg: string): ChangelogEntry[] {
  const headerRe = new RegExp(
-  `^${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+\\(([^)]+)\\)\\s+([^;]+);\\s*urgency=(.+)$`,
+  `^${escapeRegex(pkg)}\\s+\\(([^)]+)\\)\\s+([^;]+);\\s*urgency=(.+)$`,
  );
  const footerRe = /^\s*--\s+(.+?)\s+(\w{3}, \d{1,2} \w{3} \d{4} [\d:]+ [+-]\d{4})$/;
  const lines = text.split(/\r?\n/);
