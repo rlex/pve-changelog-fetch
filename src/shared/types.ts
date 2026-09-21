@@ -1,4 +1,4 @@
-export interface ReleaseInfo {
+export interface ReleaseFields {
   codename: string;
   suite: string;
   date: string;
@@ -6,6 +6,11 @@ export interface ReleaseInfo {
   components: string[];
   /** Changelogs: template from the Release file, with "@CHANGEPATH@" placeholder. */
   changelogsTemplate: string;
+}
+
+/** API response: parsed Release plus the discovered distro list. */
+export interface ReleaseInfo extends ReleaseFields {
+  distros: string[];
 }
 
 export interface PackageEntry {

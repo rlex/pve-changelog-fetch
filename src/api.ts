@@ -28,17 +28,24 @@ async function get<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function getRelease(suite: string): Promise<ReleaseInfo> {
-  return get<ReleaseInfo>(`/release?suite=${encodeURIComponent(suite)}`);
+export function getRelease(product: string, suite?: string): Promise<ReleaseInfo> {
+  const s = suite ? `&suite=${encodeURIComponent(suite)}` : "";
+  return get<ReleaseInfo>(`/release?product=${encodeURIComponent(product)}${s}`);
 }
 
-export function getPackages(suite: string, component: string, arch: string): Promise<PackageList> {
+export function getPackages(
+  product: string,
+  suite: string,
+  component: string,
+  arch: string,
+): Promise<PackageList> {
   return get<PackageList>(
-    `/packages?suite=${encodeURIComponent(suite)}&component=${encodeURIComponent(component)}&arch=${encodeURIComponent(arch)}`,
+    `/packages?product=${encodeURIComponent(product)}&suite=${encodeURIComponent(suite)}&component=${encodeURIComponent(component)}&arch=${encodeURIComponent(arch)}`,
   );
 }
 
 export function getChangelog(
+  product: string,
   suite: string,
   component: string,
   pkg: string,
@@ -47,6 +54,6 @@ export function getChangelog(
 ): Promise<Changelog> {
   const src = source ? `&source=${encodeURIComponent(source)}` : "";
   return get<Changelog>(
-    `/changelog?suite=${encodeURIComponent(suite)}&component=${encodeURIComponent(component)}&package=${encodeURIComponent(pkg)}&version=${encodeURIComponent(version)}${src}`,
+    `/changelog?product=${encodeURIComponent(product)}&suite=${encodeURIComponent(suite)}&component=${encodeURIComponent(component)}&package=${encodeURIComponent(pkg)}&version=${encodeURIComponent(version)}${src}`,
   );
 }

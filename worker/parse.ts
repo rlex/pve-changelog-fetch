@@ -1,6 +1,6 @@
-import type { ReleaseInfo, PackageEntry, ChangelogEntry } from "../src/shared/types";
+import type { ReleaseFields, PackageEntry, ChangelogEntry } from "../src/shared/types";
 
-export function parseRelease(text: string): ReleaseInfo {
+export function parseRelease(text: string): ReleaseFields {
  const kv: Record<string, string> = {};
  for (const line of text.split(/\r?\n/)) {
   // Skip continuation lines (checksum lists and wrapped values).

@@ -1,12 +1,9 @@
 import { parseRelease, parsePackages, parseChangelog, letterDir, compareVersions } from "./parse";
-import type { PackageEntry, PackageList, ReleaseInfo } from "../src/shared/types";
-
-const REPO_BASE = "http://download.proxmox.com/debian/pve";
-const CHANGELOG_BASE = "https://metadata.cdn.proxmox.com/download/changelogs/pve";
+import type { PackageEntry, PackageList, ReleaseFields } from "../src/shared/types";
+import { PRODUCTS, type Product } from "../src/shared/config";
 
 interface Env {
  ASSETS: Fetcher;
- PVE_SUITE: string;
 }
 
 const CACHE_SECONDS = {
@@ -59,41 +56,59 @@ async function fetchText(url: string, ttlSeconds: number, gzip = false): Promise
  return body;
 }
 
-/** Release for a suite; result is cached for the session. */
-async function releaseInfo(suite: string): Promise<ReleaseInfo> {
- const text = await fetchText(`${REPO_BASE}/dists/${suite}/Release`, CACHE_SECONDS.release);
+/** Release metadata for a product+suite; cached per URL. */
+async function releaseInfo(product: Product, suite: string): Promise<ReleaseFields> {
+ const text = await fetchText(`${product.repo}/dists/${suite}/Release`, CACHE_SECONDS.release);
  const info = parseRelease(text);
  if (!info.codename || info.components.length === 0) {
-  throw new Error(`no usable Release metadata for suite "${suite}"`);
+  throw new Error(`no usable Release metadata for "${product.id}" suite "${suite}"`);
  }
  return info;
 }
 
-function packagesUrl(suite: string, component: string, arch: string): string {
- return `${REPO_BASE}/dists/${suite}/${component}/binary-${arch}/Packages.gz`;
+/** Discover available distros from the repo's dists/ directory listing. */
+async function discoverDistros(repo: string): Promise<string[]> {
+ const html = await fetchText(`${repo}/dists/`, CACHE_SECONDS.listing);
+ const distros: string[] = [];
+ const re = /<a href="([A-Za-z0-9._-]+)\/">/g;
+ for (const m of html.matchAll(re)) {
+  if (m[1] !== "..") distros.push(m[1]);
+ }
+ return distros;
+}
+
+function packagesUrl(repo: string, suite: string, component: string, arch: string): string {
+ return `${repo}/dists/${suite}/${component}/binary-${arch}/Packages.gz`;
 }
 
 /** Standard nginx directory listing of the published .debs for one arch. */
-function binaryDirUrl(suite: string, component: string, arch: string): string {
- return `${REPO_BASE}/dists/${suite}/${component}/binary-${arch}/`;
+function binaryDirUrl(repo: string, suite: string, component: string, arch: string): string {
+ return `${repo}/dists/${suite}/${component}/binary-${arch}/`;
+}
+
+/** Changelog CDN base URL for a Release's `Changelogs:` template
+ * (everything before the `@CHANGEPATH@` placeholder). */
+function changelogBaseUrl(template: string): string {
+ const idx = template.indexOf("@CHANGEPATH@");
+ return idx >= 0 ? template.slice(0, idx) : template;
 }
 
 /** CDN directory of all changelog files for one package. */
-function changelogDirUrl(suite: string, component: string, pkg: string): string {
- return `${CHANGELOG_BASE}/dists/${suite}/${component}/${letterDir(pkg)}/${pkg}/`;
+function changelogDirUrl(template: string, component: string, pkg: string): string {
+ return `${changelogBaseUrl(template)}${component}/${letterDir(pkg)}/${pkg}/`;
 }
 
-function changelogFileUrl(suite: string, component: string, pkg: string, version: string): string {
- return `${CHANGELOG_BASE}/dists/${suite}/${component}/${letterDir(pkg)}/${pkg}/${pkg}_${version}.changelog`;
+function changelogFileUrl(template: string, component: string, pkg: string, version: string): string {
+ return `${changelogBaseUrl(template)}${component}/${letterDir(pkg)}/${pkg}/${pkg}_${version}.changelog`;
 }
 
 /** Highest-version changelog file present on the CDN for a package. */
 async function newestChangelogVersion(
- suite: string,
+ template: string,
  component: string,
  pkg: string,
 ): Promise<string> {
- const listing = await fetchText(changelogDirUrl(suite, component, pkg), CACHE_SECONDS.listing);
+ const listing = await fetchText(changelogDirUrl(template, component, pkg), CACHE_SECONDS.listing);
  const re = new RegExp(`${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_([^"<]+)\\.changelog`, "g");
  let best: string | null = null;
  for (const m of listing.matchAll(re)) {
@@ -124,29 +139,29 @@ function binaryListingDates(html: string): Map<string, number> {
  return dates;
 }
 
-async function handleRelease(url: URL): Promise<Response> {
- const suite = url.searchParams.get("suite") ?? "";
- const info = await releaseInfo(suite);
- return json(info, `public, max-age=${CACHE_SECONDS.release}`);
+async function handleRelease(url: URL, product: Product): Promise<Response> {
+ const suite = url.searchParams.get("suite") as string;
+ const [distros, info] = await Promise.all([discoverDistros(product.repo), releaseInfo(product, suite)]);
+ return json({ product: product.id, distros, ...info }, `public, max-age=${CACHE_SECONDS.release}`);
 }
 
-async function handlePackages(url: URL): Promise<Response> {
- const suite = url.searchParams.get("suite") ?? "";
+async function handlePackages(url: URL, product: Product): Promise<Response> {
+ const suite = url.searchParams.get("suite") as string;
  const component = url.searchParams.get("component");
  const arch = url.searchParams.get("arch");
  if (!component || !arch) return json({ error: "component and arch are required" }, "no-store", 400);
- const info = await releaseInfo(suite);
+ const info = await releaseInfo(product, suite);
  if (!info.components.includes(component)) return json({ error: `unknown component "${component}"` }, "no-store", 400);
  if (!info.architectures.includes(arch)) return json({ error: `unknown architecture "${arch}"` }, "no-store", 400);
 
- const text = await fetchText(packagesUrl(info.codename, component, arch), CACHE_SECONDS.packages, true);
+ const text = await fetchText(packagesUrl(product.repo, info.codename, component, arch), CACHE_SECONDS.packages, true);
  // Return every version row; the client collapses to latest per package (squash).
  const packages = parsePackages(text);
 
  // Attach each package's publish time from the binary dir listing (one request per arch).
  const released = new Map<string, number>();
  try {
-  const listing = await fetchText(binaryDirUrl(info.codename, component, arch), CACHE_SECONDS.listing);
+  const listing = await fetchText(binaryDirUrl(product.repo, info.codename, component, arch), CACHE_SECONDS.listing);
   for (const [basename, ms] of binaryListingDates(listing)) released.set(basename, ms);
  } catch {
   // Listing is an enhancement; packages still load without release dates.
@@ -166,14 +181,15 @@ async function handlePackages(url: URL): Promise<Response> {
  return json(result, `public, max-age=${CACHE_SECONDS.packages}`);
 }
 
-async function handleChangelog(url: URL): Promise<Response> {
- const suite = url.searchParams.get("suite") ?? "";
+async function handleChangelog(url: URL, product: Product): Promise<Response> {
+ const suite = url.searchParams.get("suite") as string;
  const component = url.searchParams.get("component");
  const pkg = url.searchParams.get("package");
  const source = url.searchParams.get("source");
  if (!component || !pkg) return json({ error: "component and package are required" }, "no-store", 400);
- const info = await releaseInfo(suite);
+ const info = await releaseInfo(product, suite);
  if (!info.components.includes(component)) return json({ error: `unknown component "${component}"` }, "no-store", 400);
+ const template = info.changelogsTemplate;
 
  const requested = url.searchParams.get("version") ?? "";
  // Changelogs are hosted per source package; try the binary name first, then its Source.
@@ -184,14 +200,14 @@ async function handleChangelog(url: URL): Promise<Response> {
    let version = requested;
    let text: string;
    try {
-    text = await fetchText(changelogFileUrl(info.codename, component, name, version), CACHE_SECONDS.changelog);
+    text = await fetchText(changelogFileUrl(template, component, name, version), CACHE_SECONDS.changelog);
    } catch {
     // Version drift / no file for this exact version: use the newest available.
-    version = await newestChangelogVersion(info.codename, component, name);
-    text = await fetchText(changelogFileUrl(info.codename, component, name, version), CACHE_SECONDS.changelog);
+    version = await newestChangelogVersion(template, component, name);
+    text = await fetchText(changelogFileUrl(template, component, name, version), CACHE_SECONDS.changelog);
    }
    return json(
-    { suite: info.codename, component, package: pkg, version, entries: parseChangelog(text, name) },
+    { product: product.id, suite: info.codename, component, package: pkg, version, entries: parseChangelog(text, name) },
     `public, max-age=${CACHE_SECONDS.changelog}`,
    );
   } catch {
@@ -213,13 +229,20 @@ export default {
    return json({ error: "method not allowed" }, "no-store", 405);
   }
 
-  const suite = url.searchParams.get("suite") ?? env.PVE_SUITE ?? "trixie";
-  url.searchParams.set("suite", suite);
+  const productId = url.searchParams.get("product") ?? PRODUCTS[0].id;
+  const product = PRODUCTS.find((p) => p.id === productId);
+  if (!product) return json({ error: `unknown product "${productId}"` }, "no-store", 400);
+  url.searchParams.set("product", product.id);
+  const requested = url.searchParams.get("suite");
+  if (!requested) {
+   const distros = await discoverDistros(product.repo);
+   url.searchParams.set("suite", product.default ?? distros[0] ?? "");
+  }
 
   try {
-   if (url.pathname === "/api/release") return await handleRelease(url);
-   if (url.pathname === "/api/packages") return await handlePackages(url);
-   if (url.pathname === "/api/changelog") return await handleChangelog(url);
+   if (url.pathname === "/api/release") return await handleRelease(url, product);
+   if (url.pathname === "/api/packages") return await handlePackages(url, product);
+   if (url.pathname === "/api/changelog") return await handleChangelog(url, product);
    if (url.pathname.startsWith("/api/")) {
     return json({ error: "not found" }, "no-store", 404);
    }

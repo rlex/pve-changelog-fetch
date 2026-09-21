@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Client-side changelog viewer for Proxmox packages, backed by a Cloudflare Worker.",
   "scripts": {
+    "sync": "node scripts/sync-config.mjs",
+    "prebuild": "npm run sync",
+    "predev": "npm run sync",
+    "pretypecheck": "npm run sync",
     "dev": "concurrently -k -n web,api -c blue,green \"vite\" \"wrangler dev --port 8787\"",
     "build": "vite build",
     "preview": "vite preview",
@@ -16,7 +20,8 @@
     "concurrently": "^9.1.2",
     "typescript": "^5.7.3",
     "vite": "^6.1.0",
-    "wrangler": "^4.1.1"
+    "wrangler": "^4.1.1",
+    "yaml": "^2.7.0"
   },
   "allowScripts": {
     "esbuild@0.25.12": true,

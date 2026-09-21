@@ -1,12 +1,9 @@
 import "./style.css";
 import { ApiError, getChangelog, getPackages, getRelease } from "./api";
 import type { Changelog, ChangelogEntry, PackageEntry, PackageList } from "./shared/types";
+import { PRODUCTS, type Product } from "./shared/config";
 
-// Proxmox VE is Debian-only. The Worker defaults to trixie; any valid dists/ Debian
-// codename is honored via ?suite=.
-const SUITES = ["trixie", "bookworm", "bullseye"];
-const DEFAULT_SUITE = "trixie";
-
+const productSelect = document.getElementById("product-select") as HTMLSelectElement;
 const suiteSelect = document.getElementById("suite-select") as HTMLSelectElement;
 const componentSelect = document.getElementById("component-select") as HTMLSelectElement;
 const archSelect = document.getElementById("arch-select") as HTMLSelectElement;
@@ -20,7 +17,8 @@ const listMsg = document.getElementById("list-msg") as HTMLElement;
 const detailMsg = document.getElementById("detail-msg") as HTMLElement;
 const detailArticle = document.getElementById("detail-article") as HTMLElement;
 
-let suite = DEFAULT_SUITE;
+let product: Product = PRODUCTS[0];
+let suite = "";
 let component = "";
 let arch = "";
 let packages: PackageEntry[] = [];
@@ -41,8 +39,8 @@ function esc(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function cacheKey(suiteArg: string, componentArg: string, archArg: string): string {
-  return `${suiteArg}/${componentArg}/${archArg}`;
+function cacheKey(productArg: string, suiteArg: string, componentArg: string, archArg: string): string {
+  return `${productArg}/${suiteArg}/${componentArg}/${archArg}`;
 }
 
 function setMsg(el: HTMLElement, text: string, show = true): void {
@@ -51,10 +49,12 @@ function setMsg(el: HTMLElement, text: string, show = true): void {
 }
 
 async function fetchRelease(): Promise<void> {
-  setMsg(repoLine, "Loading repository…");
+  setMsg(repoLine, `Loading ${product.name}…`);
   try {
-    const info = await getRelease(suite);
-    repoLine.textContent = `${info.codename} (${info.suite}) — ${info.date} · arch: ${info.architectures.join(", ")}`;
+    const info = await getRelease(product.id, suite || undefined);
+    suite = info.codename;
+    fillSuiteSelect(info.distros);
+    repoLine.textContent = `${product.name} — ${suite} (${info.suite}) — ${info.date} · arch: ${info.architectures.join(", ")}`;
     fillSelect(componentSelect, info.components, component);
     fillSelect(archSelect, info.architectures, arch);
     component = componentSelect.value;
@@ -64,7 +64,7 @@ async function fetchRelease(): Promise<void> {
     searchInput.disabled = false;
     await loadPackages();
   } catch (e) {
-    setMsg(repoLine, `Could not load suite "${suite}": ${(e as Error).message}`);
+    setMsg(repoLine, `Could not load "${product.name}" suite "${suite}": ${(e as Error).message}`);
     componentSelect.disabled = true;
     archSelect.disabled = true;
     searchInput.disabled = true;
@@ -87,7 +87,7 @@ async function loadPackages(): Promise<void> {
   selectedPkg = null;
   detailArticle.hidden = true;
   setMsg(detailMsg, "Select a package to view its changelog.");
-  const key = cacheKey(suite, component, arch);
+  const key = cacheKey(product.id, suite, component, arch);
   listMsg.hidden = true;
   listEl.textContent = "";
   searchInput.value = "";
@@ -96,7 +96,7 @@ async function loadPackages(): Promise<void> {
   if (!data) {
     setMsg(repoLine, `Loading ${component} / ${arch}…`);
     try {
-      data = await getPackages(suite, component, arch);
+      data = await getPackages(product.id, suite, component, arch);
       packageCache.set(key, data);
     } catch (e) {
       setMsg(repoLine, `Could not load packages: ${(e as Error).message}`);
@@ -216,7 +216,7 @@ function listBullets(lines: string[]): string[] {
 async function showChangelog(pkg: PackageEntry): Promise<void> {
   selectedPkg = pkg;
   renderList();
-  const key = `${suite}|${component}|${pkg.name}|${pkg.version}`;
+  const key = `${product.id}|${suite}|${component}|${pkg.name}|${pkg.version}`;
   detailMsg.hidden = false;
   setMsg(detailMsg, `Loading changelog for ${pkg.name}…`);
   detailArticle.hidden = true;
@@ -224,7 +224,7 @@ async function showChangelog(pkg: PackageEntry): Promise<void> {
   let data = changelogCache.get(key);
   if (!data) {
     try {
-      data = await getChangelog(suite, component, pkg.name, pkg.version, pkg.source);
+      data = await getChangelog(product.id, suite, component, pkg.name, pkg.version, pkg.source);
       changelogCache.set(key, data);
     } catch (e) {
       setMsg(detailMsg, e instanceof ApiError && e.status === 404
@@ -246,14 +246,33 @@ async function showChangelog(pkg: PackageEntry): Promise<void> {
 
 // --- Wiring ---
 
-suiteSelect.textContent = "";
-for (const s of SUITES) {
-  const opt = document.createElement("option");
-  opt.value = s;
-  opt.textContent = s;
-  suiteSelect.appendChild(opt);
+function fillSuiteSelect(distros: string[]): void {
+  suiteSelect.textContent = "";
+  for (const d of distros) {
+    const opt = document.createElement("option");
+    opt.value = d;
+    opt.textContent = d;
+    suiteSelect.appendChild(opt);
+  }
+  suiteSelect.value = suite && distros.includes(suite) ? suite : (distros[0] ?? "");
 }
-suiteSelect.value = DEFAULT_SUITE;
+
+productSelect.textContent = "";
+for (const p of PRODUCTS) {
+  const opt = document.createElement("option");
+  opt.value = p.id;
+  opt.textContent = p.name;
+  productSelect.appendChild(opt);
+}
+productSelect.value = product.id;
+
+productSelect.addEventListener("change", () => {
+  product = PRODUCTS.find((p) => p.id === productSelect.value) ?? PRODUCTS[0];
+  suite = "";
+  componentSelect.disabled = true;
+  archSelect.disabled = true;
+  void fetchRelease();
+});
 
 suiteSelect.addEventListener("change", () => {
   suite = suiteSelect.value;
