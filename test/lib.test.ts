@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
+  debounce,
   formatReleaseDate,
   listBullets,
   matchesPackageName,
@@ -139,5 +140,25 @@ describe("readCache / writeCache", () => {
     const s = fakeStorage({ corrupt: "{not json" });
     expect(readCache(s, "missing", 60)).toBeNull();
     expect(readCache(s, "corrupt", 60)).toBeNull();
+  });
+});
+
+describe("debounce", () => {
+  it("fires once, with the latest args, after the delay", () => {
+    vi.useFakeTimers();
+    try {
+      const fn = vi.fn();
+      const debounced = debounce(fn, 100);
+      debounced("a");
+      debounced("b");
+      debounced("c");
+      vi.advanceTimersByTime(99);
+      expect(fn).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenCalledWith("c");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

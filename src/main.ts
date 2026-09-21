@@ -3,6 +3,7 @@ import { ApiError, getChangelog, getPackages, getRelease } from "./api";
 import type { Changelog, ChangelogEntry, PackageEntry, PackageList, ReleaseInfo } from "./shared/types";
 import { PRODUCTS, CACHE_SECONDS, type Product } from "./shared/config";
 import {
+  debounce,
   formatReleaseDate,
   listBullets,
   matchesPackageName,
@@ -329,10 +330,10 @@ archSelect.addEventListener("change", () => {
   writeUrlState();
 });
 
-searchInput.addEventListener("input", () => {
+searchInput.addEventListener("input", debounce(() => {
   renderList();
   writeUrlState();
-});
+}, 120));
 
 searchHelpToggle.addEventListener("click", (ev) => {
   ev.stopPropagation();

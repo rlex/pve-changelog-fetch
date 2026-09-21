@@ -111,6 +111,22 @@ export function writeCache(
  }
 }
 
+/** Trailing debounce: the callback runs once, with the latest args, `delayMs` after the
+ * last call. Returns a function that keeps the same identity until created anew. */
+export function debounce<A extends unknown[]>(
+ fn: (...args: A) => void,
+ delayMs: number,
+): (...args: A) => void {
+ let timer: number | undefined;
+ return (...args: A) => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+   timer = undefined;
+   fn(...args);
+  }, delayMs);
+ };
+}
+
 /** Case-insensitive package-name search. Branches split on `|` are OR'd; a branch with
  * `*`/`?` is a glob (anchored full match), otherwise it's a prefix match. */
 export function matchesPackageName(name: string, query: string): boolean {
