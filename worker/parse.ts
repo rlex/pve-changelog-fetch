@@ -1,5 +1,10 @@
 import type { ReleaseFields, PackageEntry, ChangelogEntry } from "../src/shared/types";
 
+const MONTHS: Record<string, number> = {
+ Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+ Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+};
+
 export function parseRelease(text: string): ReleaseFields {
  const kv: Record<string, string> = {};
  for (const line of text.split(/\r?\n/)) {
@@ -146,12 +151,17 @@ export function letterDir(pkg: string): string {
  return pkg.startsWith("lib") ? `lib${pkg[3] ?? ""}` : (pkg[0] ?? "a");
 }
 
-/** Naive Debian-ish version comparison. Returns >0 if a newer than b. */
-export function compareVersions(a: string, b: string): number {
- const norm = (v: string) =>
-  v
-   .split(/[.~+-]/)
-   .map((part) => (/^\d+$/.test(part) ? part.padStart(12, "0") : part))
-   .join("\u0000");
- return norm(a) < norm(b) ? -1 : norm(a) > norm(b) ? 1 : 0;
+/** Parse an nginx binary-index listing into { decoded .deb basename -> publish time (ms) }.
+ * hrefs URL-encode "+" as "%2B", so decode before keying. */
+export function binaryListingDates(html: string): Map<string, number> {
+ const dates = new Map<string, number>();
+ const re = /<a href="([^"]+\.deb)">[^<]+<\/a>\s+(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{2}):(\d{2})/;
+ for (const line of html.split(/\r?\n/)) {
+  const m = line.match(re);
+  if (!m) continue;
+  const name = decodeURIComponent(m[1]);
+  const ms = Date.UTC(Number(m[4]), MONTHS[m[3]], Number(m[2]), Number(m[5]), Number(m[6]));
+  dates.set(name, ms);
+ }
+ return dates;
 }

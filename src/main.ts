@@ -2,6 +2,7 @@ import "./style.css";
 import { ApiError, getChangelog, getPackages, getRelease } from "./api";
 import type { Changelog, ChangelogEntry, PackageEntry, PackageList } from "./shared/types";
 import { PRODUCTS, type Product } from "./shared/config";
+import { listBullets, sortPackages, squashRows, type SortMode } from "./lib";
 
 const productSelect = document.getElementById("product-select") as HTMLSelectElement;
 const suiteSelect = document.getElementById("suite-select") as HTMLSelectElement;
@@ -25,7 +26,6 @@ let packages: PackageEntry[] = [];
 let allRows: PackageEntry[] = [];
 let selectedPkg: PackageEntry | null = null;
 
-type SortMode = "recent" | "name";
 let sortMode: SortMode = "recent";
 
 const packageCache = new Map<string, PackageList>();
@@ -108,26 +108,6 @@ async function loadPackages(): Promise<void> {
   applySquash();
 }
 
-/** Compare Debian-ish versions; >0 if `a` is newer than `b`. */
-function compareVersions(a: string, b: string): number {
-  const norm = (v: string) =>
-    v
-      .split(/[.~+-]/)
-      .map((part) => (/^\d+$/.test(part) ? part.padStart(12, "0") : part))
-      .join("\u0000");
-  return norm(a) < norm(b) ? -1 : norm(a) > norm(b) ? 1 : 0;
-}
-
-/** Collapse to the highest version of each package name. */
-function squashRows(rows: PackageEntry[]): PackageEntry[] {
-  const best = new Map<string, PackageEntry>();
-  for (const p of rows) {
-    const prev = best.get(p.name);
-    if (!prev || compareVersions(p.version, prev.version) > 0) best.set(p.name, p);
-  }
-  return [...best.values()];
-}
-
 /** Recompute the displayed list from all version rows per the squash toggle. */
 function applySquash(): void {
   packages = squashCheckbox.checked ? squashRows(allRows) : allRows;
@@ -145,13 +125,7 @@ function filteredPackages(): PackageEntry[] {
       (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
     )
     : packages;
-  if (sortMode === "name") return [...base].sort((a, b) => a.name.localeCompare(b.name));
-  return [...base].sort((a, b) => {
-    const da = a.released ?? -Infinity;
-    const db = b.released ?? -Infinity;
-    if (da !== db) return db - da;
-    return a.name.localeCompare(b.name);
-  });
+  return sortPackages(base, sortMode);
 }
 
 function renderList(): void {
@@ -196,21 +170,6 @@ function renderEntry(entry: ChangelogEntry): string {
         ${bullets.map((b) => `<li>${esc(b)}</li>`).join("")}
       </ul>
     </section>`;
-}
-
-/** Fold wrapped changelog lines back into bullet items. */
-function listBullets(lines: string[]): string[] {
-  const bullets: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("*")) {
-      bullets.push(line.replace(/^\*\s*/, ""));
-    } else if (bullets.length > 0) {
-      bullets[bullets.length - 1] += ` ${line}`;
-    } else {
-      bullets.push(line);
-    }
-  }
-  return bullets;
 }
 
 async function showChangelog(pkg: PackageEntry): Promise<void> {

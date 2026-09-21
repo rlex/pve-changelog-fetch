@@ -1,0 +1,26 @@
+name: CI
+
+# Runs on every push (any branch) and every pull request.
+# Deploy (publish-on-push.yaml) additionally runs the same checks before wrangler deploy.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Typecheck, tests, build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
