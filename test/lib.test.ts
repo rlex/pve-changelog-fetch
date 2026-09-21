@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { sortPackages, squashRows, listBullets, matchesPackageName } from "../src/lib";
+import {
+  sortPackages,
+  squashRows,
+  listBullets,
+  matchesPackageName,
+  relativeAge,
+  formatReleaseDate,
+} from "../src/lib";
 import type { PackageEntry } from "../src/shared/types";
 
 function pkg(name: string, version = "1.0", released: number | null = null): PackageEntry {
@@ -78,5 +85,22 @@ describe("matchesPackageName", () => {
   it("is case-insensitive and treats empty query as match-all", () => {
     expect(matchesPackageName("Pve-Qemu-Kvm", "pve")).toBe(true);
     expect(matchesPackageName("anything", "   ")).toBe(true);
+  });
+});
+
+describe("relativeAge / formatReleaseDate", () => {
+  const NOW = Date.UTC(2026, 8, 18, 12, 0, 0);
+
+  it("scales from now to days", () => {
+    expect(relativeAge(NOW - 5_000, NOW)).toBe("now");
+    expect(relativeAge(NOW - 3 * 60_000, NOW)).toBe("3m ago");
+    expect(relativeAge(NOW - 5 * 3_600_000, NOW)).toBe("5h ago");
+    expect(relativeAge(NOW - 4 * 86_400_000, NOW)).toBe("4d ago");
+    expect(relativeAge(NOW - 400 * 86_400_000, NOW)).toBe("1y ago");
+  });
+
+  it("prepends the UTC date", () => {
+    const d = new Date(NOW - 4 * 86_400_000);
+    expect(formatReleaseDate(d.getTime(), NOW)).toBe(`${d.toISOString().slice(0, 10)} · 4d ago`);
   });
 });

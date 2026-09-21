@@ -50,6 +50,24 @@ function globToRe(pattern: string): RegExp {
  return new RegExp(`^${src}$`);
 }
 
+/** "3h ago" style relative age. Deterministic for tests via the `now` param. */
+export function relativeAge(ms: number, now = Date.now()): string {
+ const s = Math.max(0, Math.floor((now - ms) / 1000));
+ if (s < 60) return "now";
+ const m = Math.floor(s / 60);
+ if (m < 60) return `${m}m ago`;
+ const h = Math.floor(m / 60);
+ if (h < 24) return `${h}h ago`;
+ const d = Math.floor(h / 24);
+ if (d < 365) return `${d}d ago`;
+ return `${Math.floor(d / 365)}y ago`;
+}
+
+/** "2026-09-18 · 3d ago" for a publish time. */
+export function formatReleaseDate(ms: number, now = Date.now()): string {
+ return `${new Date(ms).toISOString().slice(0, 10)} · ${relativeAge(ms, now)}`;
+}
+
 /** Case-insensitive package-name search. Branches split on `|` are OR'd; a branch with
  * `*`/`?` is a glob (anchored full match), otherwise it's a prefix match. */
 export function matchesPackageName(name: string, query: string): boolean {

@@ -2,7 +2,7 @@ import "./style.css";
 import { ApiError, getChangelog, getPackages, getRelease } from "./api";
 import type { Changelog, ChangelogEntry, PackageEntry, PackageList } from "./shared/types";
 import { PRODUCTS, type Product } from "./shared/config";
-import { listBullets, matchesPackageName, sortPackages, squashRows, type SortMode } from "./lib";
+import { formatReleaseDate, listBullets, matchesPackageName, sortPackages, squashRows, type SortMode } from "./lib";
 
 const productSelect = document.getElementById("product-select") as HTMLSelectElement;
 const suiteSelect = document.getElementById("suite-select") as HTMLSelectElement;
@@ -148,6 +148,7 @@ function renderList(): void {
       <div class="pkg-side">
         <span class="pkg-section">${esc(p.section)}</span>
         <span class="pkg-version">${esc(p.version)}</span>
+        ${p.released != null ? `<span class="pkg-date">${esc(formatReleaseDate(p.released))}</span>` : ""}
       </div>`;
     if (selected) li.classList.add("selected");
     listEl.appendChild(li);
