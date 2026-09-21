@@ -1,0 +1,15 @@
+name = "pve-changelog"
+main = "worker/index.ts"
+compatibility_date = "2025-01-01"
+
+# Static frontend built by Vite into ./dist, served by the Worker for non-/api paths.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+[observability]
+enabled = true
+
+# Default repository suite; override per-request with ?suite=.
+[vars]
+PVE_SUITE = "trixie"

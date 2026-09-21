@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proxmox Changelog Viewer</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">PX</span>
+        <div class="brand-text">
+          <h1>Proxmox Changelog</h1>
+          <p class="repo-line" id="repo-line">Loading repository…</p>
+        </div>
+      </div>
+      <div class="controls">
+        <label class="ctl">
+          <span>Suite</span>
+          <select id="suite-select"></select>
+        </label>
+        <label class="ctl">
+          <span>Component</span>
+          <select id="component-select" disabled></select>
+        </label>
+        <label class="ctl">
+          <span>Arch</span>
+          <select id="arch-select" disabled></select>
+        </label>
+        <input id="search" class="search" type="search" placeholder="Search packages…" disabled />
+      </div>
+    </header>
+
+    <main>
+      <section class="list-pane" id="list-pane" aria-label="Package list">
+        <div class="list-bar">
+          <div class="list-meta" id="list-meta"></div>
+          <label class="sort-ctl" title="Collapse to the latest version of each package">
+            <span>Sort</span>
+            <select id="sort-select">
+              <option value="recent">Recently updated</option>
+              <option value="name">Name</option>
+            </select>
+          </label>
+          <label class="squash-ctl">
+            <input type="checkbox" id="squash-checkbox" checked />
+            <span>Squash</span>
+          </label>
+        </div>
+        <ul class="pkg-list" id="pkg-list"></ul>
+        <div class="pane-msg" id="list-msg" hidden></div>
+      </section>
+      <section class="detail-pane" id="detail-pane" aria-label="Changelog">
+        <div class="pane-msg" id="detail-msg">
+          <p>Select a package to view its changelog.</p>
+        </div>
+        <article id="detail-article" hidden></article>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

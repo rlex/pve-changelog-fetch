@@ -1,0 +1,26 @@
+{
+  "name": "pve-changelog-fetch",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Client-side changelog viewer for Proxmox packages, backed by a Cloudflare Worker.",
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c blue,green \"vite\" \"wrangler dev --port 8787\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260921.1",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "wrangler": "^4.1.1"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "workerd@1.20260921.1": true
+  }
+}
