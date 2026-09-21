@@ -1,0 +1,64 @@
+name: Deploy
+
+# Single pipeline:
+#   - semver tag push  -> wrangler deploy   (live)
+#   - anything else    -> preview deploy     (versions upload --preview-alias)
+# Tests/typecheck/build always gate before any deploy.
+on:
+  push:
+  pull_request:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+      - name: Decide production vs preview
+        id: kind
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && echo "${{ github.ref_name }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "preview=false"
+          else
+            echo "preview=true"
+          fi
+
+      - name: Alias for preview
+        id: alias
+        run: |
+          raw="${{ github.head_ref || github.ref_name }}"
+          a="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//' | cut -c1-40)"
+          case "$a" in
+            [a-z]*) ;;
+            *) a="b-$a" ;;
+          esac
+          echo "alias=$a" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy (production)
+        if: steps.kind.outputs.preview == 'false'
+        uses: cloudflare/wrangler-action@v4.0.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Deploy (preview)
+        if: steps.kind.outputs.preview == 'true'
+        uses: cloudflare/wrangler-action@v4.0.0
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: versions upload --preview-alias "${{ steps.alias.outputs.alias }}"

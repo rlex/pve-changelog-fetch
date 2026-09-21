@@ -7,6 +7,9 @@ compatibility_date = "2025-01-01"
 directory = "./dist"
 binding = "ASSETS"
 
+# Allow aliased preview deployments (wrangler versions upload --preview-alias).
+preview_urls = true
+
 # Default suite now comes from config.yaml (each product's first distro),
 # override per-request with ?suite= and ?product=.
 [observability]

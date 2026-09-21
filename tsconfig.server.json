@@ -3,14 +3,14 @@
     "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2024"],
-    "types": ["@cloudflare/workers-types"],
+    "lib": ["ES2024", "DOM"],
+    "types": ["node"],
     "strict": true,
     "noEmit": true,
-    "isolatedModules": true,
     "skipLibCheck": true,
+    "isolatedModules": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["worker", "src/core", "src/shared"]
+  "include": ["src/server.ts", "src/core", "src/shared"]
 }

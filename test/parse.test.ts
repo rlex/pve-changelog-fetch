@@ -6,7 +6,7 @@ import {
   letterDir,
   binaryListingDates,
   inflateIfGzip,
-} from "../worker/parse";
+} from "../src/core/parse";
 import { compareVersions } from "../src/shared/compare";
 
 describe("parseRelease", () => {

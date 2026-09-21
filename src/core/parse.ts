@@ -1,4 +1,4 @@
-import type { ReleaseFields, PackageEntry, ChangelogEntry } from "../src/shared/types";
+import type { ReleaseFields, PackageEntry, ChangelogEntry } from "../shared/types";
 
 const MONTHS: Record<string, number> = {
  Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
