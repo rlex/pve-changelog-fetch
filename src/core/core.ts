@@ -272,6 +272,11 @@ export async function apiFetch(cache: CacheStore, request: Request): Promise<Res
   return json({ error: "method not allowed" }, "no-store", 405);
  }
 
+ // Liveness probe: no upstream/discovery dependency, so it never flaps.
+ if (url.pathname === "/api/health") {
+  return json({ status: "ok" }, "no-store");
+ }
+
  const productId = url.searchParams.get("product") ?? PRODUCTS[0].id;
  const product = PRODUCTS.find((p) => p.id === productId);
  if (!product) return json({ error: `unknown product "${productId}"` }, "no-store", 400);
