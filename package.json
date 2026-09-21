@@ -1,5 +1,5 @@
 {
-  "name": "pve-changelog-fetch",
+  "name": "pve-changelog-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",

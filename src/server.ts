@@ -63,4 +63,4 @@ createServer((req, res) => {
     return;
   }
   void serveStatic(res, url).catch(() => res.writeHead(500).end("internal error"));
-}).listen(port, () => console.log(`pve-changelog serving :${port} (dist ${DIST_ROOT})`));
+}).listen(port, () => console.log(`pve-changelog-web serving :${port} (dist ${DIST_ROOT})`));
