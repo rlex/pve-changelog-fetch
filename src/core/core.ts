@@ -24,6 +24,19 @@ const corsHeaders = {
  "Access-Control-Max-Age": "86400",
 };
 
+/** True when `value` is a non-empty string fully matching `re`.
+ * Used to whitelist user-supplied path segments before interpolating into upstream URLs —
+ * forbidding "/", "\", "%", "." runs and control chars kills path traversal outright
+ * (including the "%2F"-re-encoded-slash trick, since "%" is rejected). */
+function validChars(re: RegExp, value: unknown): boolean {
+ return typeof value === "string" && value.length > 0 && re.test(value);
+}
+
+// Distro codenames / packages / versions are constrained to Debian-safe charsets.
+const SUITE_RE = /^[a-z0-9-]{1,32}$/;
+const PKG_RE = /^[a-z0-9][a-z0-9+._~-]{0,63}$/;
+const VERSION_RE = /^[0-9A-Za-z.+~:-]{1,64}$/;
+
 /** TTL cache abstraction; implemented per platform (Workers Cache API, in-memory). */
 export interface CacheStore {
  get(url: string): Promise<CacheEntry | null>;
@@ -59,16 +72,26 @@ export class WorkersCache implements CacheStore {
  }
 }
 
-/** In-process TTL cache for platforms without the Workers Cache API (Node server). */
+/** In-process TTL cache for platforms without the Workers Cache API (Node server).
+ * Bounded to `max` entries with FIFO eviction so unauthenticated clients can't grow
+ * memory without limit by requesting many distinct URLs. */
 export class MemoryCache implements CacheStore {
  private readonly store = new Map<string, CacheEntry>();
+
+ constructor(private readonly max = 1000) { }
 
  async get(url: string): Promise<CacheEntry | null> {
   return this.store.get(url) ?? null;
  }
 
  async put(url: string, entry: CacheEntry): Promise<void> {
+  this.store.delete(url); // refresh insertion order
   this.store.set(url, entry);
+  while (this.store.size > this.max) {
+   const oldest = this.store.keys().next().value;
+   if (oldest === undefined) break;
+   this.store.delete(oldest);
+  }
  }
 }
 
@@ -209,11 +232,14 @@ async function handleChangelog(cache: CacheStore, url: URL, product: Product): P
  const pkg = url.searchParams.get("package");
  const source = url.searchParams.get("source");
  if (!component || !pkg) return json({ error: "component and package are required" }, "no-store", 400);
+ if (!validChars(PKG_RE, pkg)) return json({ error: "invalid package name" }, "no-store", 400);
+ if (source !== null && !validChars(PKG_RE, source)) return json({ error: "invalid source name" }, "no-store", 400);
  const info = await releaseInfo(cache, product, suite);
  if (!info.components.includes(component)) return json({ error: `unknown component "${component}"` }, "no-store", 400);
  const template = info.changelogsTemplate;
 
  const requested = url.searchParams.get("version") ?? "";
+ if (requested && !validChars(VERSION_RE, requested)) return json({ error: "invalid version" }, "no-store", 400);
  // Changelogs are hosted per source package; try the binary name first, then its Source.
  const names = source && source !== pkg ? [pkg, source] : [pkg];
 
@@ -257,12 +283,18 @@ export async function apiFetch(cache: CacheStore, request: Request): Promise<Res
  const product = PRODUCTS.find((p) => p.id === productId);
  if (!product) return json({ error: `unknown product "${productId}"` }, "no-store", 400);
  url.searchParams.set("product", product.id);
- if (!url.searchParams.get("suite")) {
-  const distros = await discoverDistros(cache, product.repo);
-  url.searchParams.set("suite", product.default ?? distros[0] ?? "");
- }
 
  try {
+  // Resolve + whitelist the suite against the repo's actual distros (cached),
+  // which both blocks path traversal and bounds the set of upstream fetches.
+  const distros = await discoverDistros(cache, product.repo);
+  const requested = url.searchParams.get("suite");
+  const suite = requested ?? product.default ?? distros[0] ?? "";
+  if (!validChars(SUITE_RE, suite) || !distros.includes(suite)) {
+   return json({ error: "unknown or invalid suite" }, "no-store", 400);
+  }
+  url.searchParams.set("suite", suite);
+
   if (url.pathname === "/api/release") return await handleRelease(cache, url, product);
   if (url.pathname === "/api/packages") return await handlePackages(cache, url, product);
   if (url.pathname === "/api/changelog") return await handleChangelog(cache, url, product);
