@@ -2,13 +2,15 @@ import "./style.css";
 import { ApiError, getChangelog, getPackages, getRelease } from "./api";
 import type { Changelog, ChangelogEntry, PackageEntry, PackageList } from "./shared/types";
 import { PRODUCTS, type Product } from "./shared/config";
-import { listBullets, sortPackages, squashRows, type SortMode } from "./lib";
+import { listBullets, matchesPackageName, sortPackages, squashRows, type SortMode } from "./lib";
 
 const productSelect = document.getElementById("product-select") as HTMLSelectElement;
 const suiteSelect = document.getElementById("suite-select") as HTMLSelectElement;
 const componentSelect = document.getElementById("component-select") as HTMLSelectElement;
 const archSelect = document.getElementById("arch-select") as HTMLSelectElement;
 const searchInput = document.getElementById("search") as HTMLInputElement;
+const searchHelpToggle = document.getElementById("search-help-toggle") as HTMLButtonElement;
+const searchHelp = document.getElementById("search-help") as HTMLElement;
 const sortSelect = document.getElementById("sort-select") as HTMLSelectElement;
 const squashCheckbox = document.getElementById("squash-checkbox") as HTMLInputElement;
 const repoLine = document.getElementById("repo-line") as HTMLElement;
@@ -119,12 +121,8 @@ function applySquash(): void {
 }
 
 function filteredPackages(): PackageEntry[] {
-  const q = searchInput.value.trim().toLowerCase();
-  const base = q
-    ? packages.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
-    )
-    : packages;
+  const q = searchInput.value.trim();
+  const base = q ? packages.filter((p) => matchesPackageName(p.name, q)) : packages;
   return sortPackages(base, sortMode);
 }
 
@@ -249,6 +247,14 @@ archSelect.addEventListener("change", () => {
 });
 
 searchInput.addEventListener("input", renderList);
+
+searchHelpToggle.addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  searchHelp.hidden = !searchHelp.hidden;
+});
+document.addEventListener("click", () => {
+  searchHelp.hidden = true;
+});
 
 sortSelect.addEventListener("change", () => {
   sortMode = sortSelect.value === "name" ? "name" : "recent";

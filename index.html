@@ -32,7 +32,17 @@
           <span>Arch</span>
           <select id="arch-select" disabled></select>
         </label>
-        <input id="search" class="search" type="search" placeholder="Search packages…" disabled />
+        <div class="search-wrap">
+          <input id="search" class="search" type="search" placeholder="Search (try pve|qemu)" disabled />
+          <button id="search-help-toggle" class="search-help-btn" type="button" aria-label="Search syntax" title="Search syntax">?</button>
+          <div id="search-help" class="search-help-pop" hidden>
+            <ul>
+              <li><code>pve</code> — packages <em>starting with</em> <code>pve</code></li>
+              <li><code>*pve*</code>, <code>qemu*</code>, <code>pv?e</code> — glob wildcards</li>
+              <li><code>pve|qemu*</code> — OR (pipe) between patterns</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </header>
 

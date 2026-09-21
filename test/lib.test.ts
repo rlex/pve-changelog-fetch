@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortPackages, squashRows, listBullets } from "../src/lib";
+import { sortPackages, squashRows, listBullets, matchesPackageName } from "../src/lib";
 import type { PackageEntry } from "../src/shared/types";
 
 function pkg(name: string, version = "1.0", released: number | null = null): PackageEntry {
@@ -52,5 +52,31 @@ describe("listBullets", () => {
 
   it("keeps standalone non-bullet lines as-is", () => {
     expect(listBullets(["plain line"])).toEqual(["plain line"]);
+  });
+});
+
+describe("matchesPackageName", () => {
+  it("is a prefix match by default, not substring", () => {
+    expect(matchesPackageName("pve-qemu-kvm", "pve")).toBe(true);
+    expect(matchesPackageName("libpve-common-perl", "pve")).toBe(false); // contains, not prefix
+  });
+
+  it("supports * and ? globs (anchored)", () => {
+    expect(matchesPackageName("libpve-common-perl", "*pve*")).toBe(true);
+    expect(matchesPackageName("pve-qemu-kvm", "pve*")).toBe(true);
+    expect(matchesPackageName("pvea", "pve?")).toBe(true);
+    expect(matchesPackageName("pve", "pve?")).toBe(false);
+    expect(matchesPackageName("zfsutils-linux", "*pve*")).toBe(false);
+  });
+
+  it("supports OR via |", () => {
+    expect(matchesPackageName("pve-qemu-kvm", "proxmox|*qemu*")).toBe(true);
+    expect(matchesPackageName("pve-qemu-kvm", "pve*|zfs")).toBe(true); // prefix branch OR
+    expect(matchesPackageName("lvm2", "proxmox|*qemu*")).toBe(false);
+  });
+
+  it("is case-insensitive and treats empty query as match-all", () => {
+    expect(matchesPackageName("Pve-Qemu-Kvm", "pve")).toBe(true);
+    expect(matchesPackageName("anything", "   ")).toBe(true);
   });
 });
