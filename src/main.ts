@@ -118,6 +118,7 @@ function applySquash(): void {
     : "";
   setMsg(repoLine, `Loaded ${packages.length} packages${note} in ${component} / ${arch}.`);
   renderList();
+  writeUrlState();
 }
 
 function filteredPackages(): PackageEntry[] {
@@ -223,30 +224,93 @@ for (const p of PRODUCTS) {
 }
 productSelect.value = product.id;
 
+interface UrlState {
+  productId?: string;
+  suite?: string;
+  component?: string;
+  arch?: string;
+  q?: string;
+  sort?: SortMode;
+  squash?: boolean;
+}
+
+function readUrlState(): UrlState {
+  const u = new URLSearchParams(window.location.search);
+  const state: UrlState = {};
+  const productId = u.get("product");
+  if (productId && PRODUCTS.some((p) => p.id === productId)) state.productId = productId;
+  for (const key of ["suite", "component", "arch"] as const) {
+    const value = u.get(key);
+    if (value) state[key] = value;
+  }
+  const q = u.get("q");
+  if (q !== null) state.q = q;
+  const sort = u.get("sort");
+  if (sort === "name" || sort === "recent") state.sort = sort;
+  const squash = u.get("squash");
+  if (squash === "0") state.squash = false;
+  else if (squash === "1") state.squash = true;
+  return state;
+}
+
+/** Mirror current UI state into the URL query (no history entry) for shareable links. */
+function writeUrlState(): void {
+  const params = new URLSearchParams();
+  if (product.id !== PRODUCTS[0].id) params.set("product", product.id);
+  if (suite) params.set("suite", suite);
+  if (component) params.set("component", component);
+  if (arch) params.set("arch", arch);
+  const q = searchInput.value.trim();
+  if (q) params.set("q", q);
+  if (sortMode !== "recent") params.set("sort", sortMode);
+  if (!squashCheckbox.checked) params.set("squash", "0");
+  const query = params.toString();
+  history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+}
+
+// Seed initial state from the URL (deep links), before the first load.
+const urlState = readUrlState();
+if (urlState.productId) product = PRODUCTS.find((p) => p.id === urlState.productId) ?? product;
+productSelect.value = product.id;
+suite = urlState.suite ?? "";
+component = urlState.component ?? "";
+arch = urlState.arch ?? "";
+if (urlState.sort) sortMode = urlState.sort;
+sortSelect.value = sortMode;
+if (urlState.squash !== undefined) squashCheckbox.checked = urlState.squash;
+searchInput.value = urlState.q ?? "";
+
 productSelect.addEventListener("change", () => {
   product = PRODUCTS.find((p) => p.id === productSelect.value) ?? PRODUCTS[0];
   suite = "";
   componentSelect.disabled = true;
   archSelect.disabled = true;
   void fetchRelease();
+  writeUrlState();
 });
 
 suiteSelect.addEventListener("change", () => {
   suite = suiteSelect.value;
   void fetchRelease();
+  writeUrlState();
 });
 
 componentSelect.addEventListener("change", () => {
   component = componentSelect.value;
   void loadPackages();
+  writeUrlState();
 });
 
 archSelect.addEventListener("change", () => {
   arch = archSelect.value;
   void loadPackages();
+  writeUrlState();
 });
 
-searchInput.addEventListener("input", renderList);
+searchInput.addEventListener("input", () => {
+  renderList();
+  writeUrlState();
+});
 
 searchHelpToggle.addEventListener("click", (ev) => {
   ev.stopPropagation();
@@ -259,6 +323,7 @@ document.addEventListener("click", () => {
 sortSelect.addEventListener("change", () => {
   sortMode = sortSelect.value === "name" ? "name" : "recent";
   renderList();
+  writeUrlState();
 });
 
 squashCheckbox.addEventListener("change", applySquash);
