@@ -29,6 +29,8 @@ const listEl = document.getElementById("pkg-list") as HTMLUListElement;
 const listMsg = document.getElementById("list-msg") as HTMLElement;
 const detailMsg = document.getElementById("detail-msg") as HTMLElement;
 const detailArticle = document.getElementById("detail-article") as HTMLElement;
+const backBtn = document.getElementById("back-btn") as HTMLButtonElement;
+const mainEl = document.querySelector("main") as HTMLElement;
 
 let product: Product = PRODUCTS[0];
 let suite = "";
@@ -105,6 +107,7 @@ function fillSelect(el: HTMLSelectElement, values: string[], preferred: string):
 
 async function loadPackages(): Promise<void> {
   selectedPkg = null;
+  mainEl.classList.remove("detail-open");
   detailArticle.hidden = true;
   setMsg(detailMsg, "Select a package to view its changelog.");
   const key = cacheKey(product.id, suite, component, arch);
@@ -162,12 +165,12 @@ function renderList(): void {
     const selected = selectedPkg?.name === p.name;
     li.innerHTML = `
       <div class="pkg-main">
-        <span class="pkg-name">${esc(p.name)}</span>
+        <span class="pkg-name" title="${esc(p.name)}">${esc(p.name)}</span>
         <span class="pkg-desc">${esc(p.description)}</span>
       </div>
       <div class="pkg-side">
         <span class="pkg-section">${esc(p.section)}</span>
-        <span class="pkg-version">${esc(p.version)}</span>
+        <span class="pkg-version" title="${esc(p.version)}">${esc(p.version)}</span>
         ${p.released != null ? `<span class="pkg-date">${esc(formatReleaseDate(p.released))}</span>` : ""}
       </div>`;
     if (selected) li.classList.add("selected");
@@ -194,6 +197,7 @@ function renderEntry(entry: ChangelogEntry): string {
 
 async function showChangelog(pkg: PackageEntry): Promise<void> {
   selectedPkg = pkg;
+  mainEl.classList.add("detail-open");
   renderList();
   const key = `${product.id}|${suite}|${component}|${pkg.name}|${pkg.version}`;
   detailMsg.hidden = false;
@@ -350,6 +354,10 @@ sortSelect.addEventListener("change", () => {
 });
 
 squashCheckbox.addEventListener("change", applySquash);
+
+backBtn.addEventListener("click", () => {
+  mainEl.classList.remove("detail-open");
+});
 
 listEl.addEventListener("click", (ev) => {
   const target = (ev.target as HTMLElement).closest<HTMLLIElement>("li.pkg-row");

@@ -9,7 +9,7 @@
     "prebuild": "npm run sync",
     "predev": "npm run sync",
     "pretypecheck": "npm run sync",
-    "dev": "concurrently -k -n web,api -c blue,green \"vite\" \"wrangler dev --port 8787\"",
+    "dev": "concurrently -k -n web,api -c blue,green \"vite\" \"wrangler dev --port 8787 --ip 0.0.0.0\"",
     "build": "vite build",
     "build:server": "esbuild src/server.ts --bundle --platform=node --format=esm --outfile=dist-server/server.mjs",
     "server": "node dist-server/server.mjs",

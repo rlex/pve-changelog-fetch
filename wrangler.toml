@@ -2,13 +2,13 @@ name = "pve-changelog"
 main = "worker/index.ts"
 compatibility_date = "2025-01-01"
 
+# Allow aliased preview deployments (wrangler versions upload --preview-alias).
+preview_urls = true
+
 # Static frontend built by Vite into ./dist, served by the Worker for non-/api paths.
 [assets]
 directory = "./dist"
 binding = "ASSETS"
-
-# Allow aliased preview deployments (wrangler versions upload --preview-alias).
-preview_urls = true
 
 # Default suite now comes from config.yaml (each product's first distro),
 # override per-request with ?suite= and ?product=.

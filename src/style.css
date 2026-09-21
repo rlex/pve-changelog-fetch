@@ -165,7 +165,7 @@ body {
 main {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(320px, 42%) 1fr;
+  grid-template-columns: minmax(0, 42%) 1fr;
   min-height: 0;
 }
 
@@ -174,12 +174,15 @@ main {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .list-bar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px 14px;
+  flex-wrap: wrap;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
 }
@@ -188,6 +191,24 @@ main {
   flex: 1;
   font-size: 12px;
   color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.back-btn {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-raise);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .sort-ctl {
@@ -234,6 +255,7 @@ main {
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
 }
 
@@ -267,11 +289,15 @@ main {
   font-weight: 600;
   font-size: 13px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pkg-desc {
   font-size: 12px;
   color: var(--text-dim);
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -282,7 +308,17 @@ main {
   flex-direction: column;
   align-items: end;
   gap: 2px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
+}
+
+.pkg-version,
+.pkg-section {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pkg-section {
@@ -307,6 +343,8 @@ main {
 .detail-pane {
   overflow-y: auto;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
   padding: 20px 24px 40px;
 }
 
@@ -365,15 +403,68 @@ main {
 
 .entry-changes li {
   margin-bottom: 3px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 760px) {
+  /* Full-height, single pane: list by default, detail when opened */
   main {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
+    grid-template-rows: 1fr;
+  }
+  main:not(.detail-open) .detail-pane {
+    display: none;
+  }
+  main.detail-open .list-pane {
+    display: none;
   }
   .list-pane {
     border-right: none;
     border-bottom: 1px solid var(--border);
+  }
+  .back-btn {
+    display: inline-flex;
+  }
+
+  /* Condensed topbar: labels hidden, selects share rows, search full-width */
+  .topbar {
+    gap: 12px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  }
+  .controls {
+    width: 100%;
+    margin-left: 0;
+    gap: 8px;
+  }
+  .ctl {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .ctl > span {
+    display: none;
+  }
+  .ctl select {
+    min-width: 0;
+    width: 100%;
+    padding: 9px 8px;
+  }
+  .search-wrap {
+    flex-basis: 100%;
+  }
+  .search {
+    min-width: 0;
+    width: 100%;
+    padding: 9px 10px;
+  }
+  .search-help-pop {
+    max-width: calc(100vw - 24px);
+  }
+
+  /* Touch targets + safe area */
+  .pkg-row {
+    padding: 12px 14px;
+  }
+  .detail-pane {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   }
 }
