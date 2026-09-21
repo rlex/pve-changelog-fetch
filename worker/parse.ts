@@ -165,3 +165,13 @@ export function binaryListingDates(html: string): Map<string, number> {
  }
  return dates;
 }
+
+/** Decompress `bytes` when they carry the gzip magic (0x1f 0x8b); otherwise return them as
+ * UTF-8 text. Tolerates upstream responses that arrive already-decompressed at the HTTP
+ * layer (no gzip magic) instead of throwing a "Decompression failed" error. */
+export async function inflateIfGzip(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
+ const isGzip = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+ if (!isGzip) return new TextDecoder().decode(bytes);
+ const stream = new Response(bytes).body!.pipeThrough(new DecompressionStream("gzip"));
+ return await new Response(stream).text();
+}

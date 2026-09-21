@@ -1,4 +1,4 @@
-import { parseRelease, parsePackages, parseChangelog, letterDir, binaryListingDates } from "./parse";
+import { parseRelease, parsePackages, parseChangelog, letterDir, binaryListingDates, inflateIfGzip } from "./parse";
 import type { PackageEntry, PackageList, ReleaseFields } from "../src/shared/types";
 import { PRODUCTS, type Product } from "../src/shared/config";
 import { compareVersions } from "../src/shared/compare";
@@ -48,7 +48,7 @@ async function fetchText(url: string, ttlSeconds: number, gzip = false): Promise
   throw new Error(`upstream ${response.status} for ${url}`);
  }
  const body = gzip
-  ? await new Response(response.body!.pipeThrough(new DecompressionStream("gzip"))).text()
+  ? await inflateIfGzip(new Uint8Array(await response.arrayBuffer()))
   : await response.text();
  await cache.put(
   request,

@@ -5,6 +5,7 @@ import {
   parseChangelog,
   letterDir,
   binaryListingDates,
+  inflateIfGzip,
 } from "../worker/parse";
 import { compareVersions } from "../src/shared/compare";
 
@@ -161,5 +162,24 @@ describe("binaryListingDates", () => {
     expect(dates.size).toBe(2);
     expect(dates.get("foo_1.0_all.deb")).toBe(Date.UTC(2025, 7, 5, 12, 19));
     expect(dates.get("bar_2+1_amd64.deb")).toBe(Date.UTC(2026, 0, 19, 17, 2));
+  });
+});
+
+describe("inflateIfGzip", () => {
+  // gzip(bytes) of the exact string "Package: foo\n" (mtime 0), precomputed.
+  const GZIP_FOO = new Uint8Array([31, 139, 8, 0, 0, 0, 0, 0, 0, 19, 11, 72, 76, 206, 78, 76, 79, 181, 82, 72, 203, 207, 231, 2, 0, 86, 176, 214, 38, 13, 0, 0, 0]);
+
+  it("decompresses a gzip stream", async () => {
+    expect(await inflateIfGzip(GZIP_FOO)).toBe("Package: foo\n");
+  });
+
+  it("passes through already-decompressed bytes instead of throwing", async () => {
+    const plain = new TextEncoder().encode("Package: foo\n");
+    expect(await inflateIfGzip(plain)).toBe("Package: foo\n");
+  });
+
+  it("passes through arbitrary non-gzip bytes as text", async () => {
+    const html = new TextEncoder().encode("<html>error</html>");
+    expect(await inflateIfGzip(html)).toBe("<html>error</html>");
   });
 });
