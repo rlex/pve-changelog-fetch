@@ -1,13 +1,27 @@
 import { describe, it, expect } from "vitest";
 import {
-  sortPackages,
-  squashRows,
+  formatReleaseDate,
   listBullets,
   matchesPackageName,
+  readCache,
   relativeAge,
-  formatReleaseDate,
+  sortPackages,
+  squashRows,
+  writeCache,
+  type CacheStorage,
 } from "../src/lib";
 import type { PackageEntry } from "../src/shared/types";
+
+/** Minimal in-memory CacheStorage double for tests. */
+function fakeStorage(seed: Record<string, string> = {}): CacheStorage & { map: Map<string, string> } {
+  const map = new Map(Object.entries(seed));
+  return {
+    map,
+    getItem: (k) => map.get(k) ?? null,
+    setItem: (k, v) => void map.set(k, v),
+    removeItem: (k) => void map.delete(k),
+  };
+}
 
 function pkg(name: string, version = "1.0", released: number | null = null): PackageEntry {
   return { name, version, arch: "all", section: "s", filename: "f", description: "", released };
@@ -102,5 +116,28 @@ describe("relativeAge / formatReleaseDate", () => {
   it("prepends the UTC date", () => {
     const d = new Date(NOW - 4 * 86_400_000);
     expect(formatReleaseDate(d.getTime(), NOW)).toBe(`${d.toISOString().slice(0, 10)} · 4d ago`);
+  });
+});
+
+describe("readCache / writeCache", () => {
+  const NOW = Date.UTC(2026, 8, 18, 12, 0, 0);
+
+  it("round-trips a value within TTL", () => {
+    const s = fakeStorage();
+    writeCache(s, "k", { a: 1 }, NOW);
+    expect(readCache<{ a: number }>(s, "k", 60, NOW + 30_000)).toEqual({ a: 1 });
+  });
+
+  it("expires entries after the TTL and removes them", () => {
+    const s = fakeStorage();
+    writeCache(s, "k", { a: 1 }, NOW);
+    expect(readCache(s, "k", 60, NOW + 61_000)).toBeNull();
+    expect(s.map.has("k")).toBe(false);
+  });
+
+  it("returns null for missing or corrupt entries", () => {
+    const s = fakeStorage({ corrupt: "{not json" });
+    expect(readCache(s, "missing", 60)).toBeNull();
+    expect(readCache(s, "corrupt", 60)).toBeNull();
   });
 });

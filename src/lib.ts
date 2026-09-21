@@ -68,6 +68,49 @@ export function formatReleaseDate(ms: number, now = Date.now()): string {
  return `${new Date(ms).toISOString().slice(0, 10)} · ${relativeAge(ms, now)}`;
 }
 
+/** Minimal subset of the Web Storage API (localStorage satisfies this structurally). */
+export interface CacheStorage {
+ getItem(key: string): string | null;
+ setItem(key: string, value: string): void;
+ removeItem(key: string): void;
+}
+
+/** Read a value persisted by `writeCache` if it is still within `ttlSeconds`. */
+export function readCache<T>(
+ storage: CacheStorage,
+ key: string,
+ ttlSeconds: number,
+ now = Date.now(),
+): T | null {
+ const raw = storage.getItem(key);
+ if (!raw) return null;
+ let entry: { savedAt: number; data: T };
+ try {
+  entry = JSON.parse(raw) as { savedAt: number; data: T };
+ } catch {
+  return null; // corrupt entry
+ }
+ if (!Number.isFinite(entry.savedAt) || now - entry.savedAt > ttlSeconds * 1000) {
+  storage.removeItem(key);
+  return null;
+ }
+ return entry.data;
+}
+
+/** Persist `data` with an age stamp; swallowing quota/private-mode failures. */
+export function writeCache(
+ storage: CacheStorage,
+ key: string,
+ data: unknown,
+ now = Date.now(),
+): void {
+ try {
+  storage.setItem(key, JSON.stringify({ savedAt: now, data }));
+ } catch {
+  // localStorage full or unavailable — the in-memory cache still works.
+ }
+}
+
 /** Case-insensitive package-name search. Branches split on `|` are OR'd; a branch with
  * `*`/`?` is a glob (anchored full match), otherwise it's a prefix match. */
 export function matchesPackageName(name: string, query: string): boolean {

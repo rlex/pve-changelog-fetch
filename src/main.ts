@@ -1,8 +1,17 @@
 import "./style.css";
 import { ApiError, getChangelog, getPackages, getRelease } from "./api";
-import type { Changelog, ChangelogEntry, PackageEntry, PackageList } from "./shared/types";
-import { PRODUCTS, type Product } from "./shared/config";
-import { formatReleaseDate, listBullets, matchesPackageName, sortPackages, squashRows, type SortMode } from "./lib";
+import type { Changelog, ChangelogEntry, PackageEntry, PackageList, ReleaseInfo } from "./shared/types";
+import { PRODUCTS, CACHE_SECONDS, type Product } from "./shared/config";
+import {
+  formatReleaseDate,
+  listBullets,
+  matchesPackageName,
+  readCache,
+  sortPackages,
+  squashRows,
+  writeCache,
+  type SortMode,
+} from "./lib";
 
 const productSelect = document.getElementById("product-select") as HTMLSelectElement;
 const suiteSelect = document.getElementById("suite-select") as HTMLSelectElement;
@@ -32,6 +41,7 @@ let sortMode: SortMode = "recent";
 
 const packageCache = new Map<string, PackageList>();
 const changelogCache = new Map<string, Changelog>();
+const releaseCache = new Map<string, ReleaseInfo>();
 
 function esc(value: string): string {
   return value
@@ -53,7 +63,14 @@ function setMsg(el: HTMLElement, text: string, show = true): void {
 async function fetchRelease(): Promise<void> {
   setMsg(repoLine, `Loading ${product.name}…`);
   try {
-    const info = await getRelease(product.id, suite || undefined);
+    const relKey = `${product.id}|${suite || "default"}`;
+    let info = releaseCache.get(relKey)
+      ?? readCache<ReleaseInfo>(localStorage, `pvc:rel:${relKey}`, CACHE_SECONDS.release);
+    if (!info) {
+      info = await getRelease(product.id, suite || undefined);
+      releaseCache.set(relKey, info);
+      writeCache(localStorage, `pvc:rel:${relKey}`, info);
+    }
     suite = info.codename;
     fillSuiteSelect(info.distros);
     repoLine.textContent = `${product.name} — ${suite} (${info.suite}) — ${info.date} · arch: ${info.architectures.join(", ")}`;
@@ -94,12 +111,14 @@ async function loadPackages(): Promise<void> {
   listEl.textContent = "";
   searchInput.value = "";
 
-  let data = packageCache.get(key);
+  let data = packageCache.get(key)
+    ?? readCache<PackageList>(localStorage, `pvc:pkg:${key}`, CACHE_SECONDS.packages);
   if (!data) {
     setMsg(repoLine, `Loading ${component} / ${arch}…`);
     try {
       data = await getPackages(product.id, suite, component, arch);
       packageCache.set(key, data);
+      writeCache(localStorage, `pvc:pkg:${key}`, data);
     } catch (e) {
       setMsg(repoLine, `Could not load packages: ${(e as Error).message}`);
       setMsg(listMsg, "Failed to load package list.");
@@ -180,11 +199,13 @@ async function showChangelog(pkg: PackageEntry): Promise<void> {
   setMsg(detailMsg, `Loading changelog for ${pkg.name}…`);
   detailArticle.hidden = true;
 
-  let data = changelogCache.get(key);
+  let data = changelogCache.get(key)
+    ?? readCache<Changelog>(localStorage, `pvc:chg:${key}`, CACHE_SECONDS.changelog);
   if (!data) {
     try {
       data = await getChangelog(product.id, suite, component, pkg.name, pkg.version, pkg.source);
       changelogCache.set(key, data);
+      writeCache(localStorage, `pvc:chg:${key}`, data);
     } catch (e) {
       setMsg(detailMsg, e instanceof ApiError && e.status === 404
         ? "No changelog available for this package."
