@@ -28,3 +28,11 @@ products:
     name: Proxmox Mail Gateway
     repo: http://download.proxmox.com/debian/pmg
     default: trixie
+
+# Upstream-fetch cache TTLs, in seconds. Any key left out falls back to the
+# default below (release 300 / packages 900 / changelog 3600 / listing 900).
+cache:
+  release: 300
+  packages: 900
+  changelog: 3600
+  listing: 900

@@ -45,3 +45,12 @@ export const PRODUCTS: Product[] = [
     "default": "trixie"
   }
 ];
+
+export type CacheKey = "release" | "packages" | "changelog" | "listing";
+/** Upstream-fetch cache TTLs in seconds, sourced from config.yaml. */
+export const CACHE_SECONDS: Record<CacheKey, number> = {
+  "release": 300,
+  "packages": 900,
+  "changelog": 3600,
+  "listing": 900
+};

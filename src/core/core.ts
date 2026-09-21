@@ -7,15 +7,8 @@ import {
  inflateIfGzip,
 } from "./parse";
 import type { PackageEntry, PackageList, ReleaseFields } from "../shared/types";
-import { PRODUCTS, type Product } from "../shared/config";
+import { PRODUCTS, CACHE_SECONDS, type Product } from "../shared/config";
 import { compareVersions } from "../shared/compare";
-
-export const CACHE_SECONDS = {
- release: 300,
- packages: 900,
- changelog: 3600,
- listing: 900,
-} as const;
 
 const corsHeaders = {
  "Access-Control-Allow-Origin": "*",
